@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: prs-tutor-rag-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false          # Set this manually in Render dashboard
+      - key: GOOGLE_CLIENT_ID
+        sync: false          # Set this manually in Render dashboard
+      - key: FRONTEND_URL
+        sync: false          # Set this manually in Render dashboard
+      - key: RATE_LIMIT_PER_DAY
+        value: "10"
+      - key: NODE_ENV
+        value: production
