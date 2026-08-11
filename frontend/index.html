@@ -14,6 +14,9 @@
   <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
+  <!-- Mammoth.js — DOCX (Word) support -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
   <!-- Google Identity Services (GSI) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
@@ -141,19 +144,13 @@
               <span class="card-icon">📄</span>
               <h3>Upload Study Notes</h3>
             </div>
-            <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload notes - drag and drop or click to browse">
-              <div class="upload-animation" aria-hidden="true">
-                <div class="upload-circle"><span class="upload-main-icon">☁️</span></div>
-                <div class="upload-rings">
-                  <div class="ring ring-1"></div>
-                  <div class="ring ring-2"></div>
-                  <div class="ring ring-3"></div>
-                </div>
-              </div>
-              <p class="upload-title">Drop your notes here</p>
-              <p class="upload-subtitle">Supports <strong>PDF</strong>, <strong>TXT</strong>, <strong>MD</strong> files</p>
-              <button class="btn-upload-browse" id="browseBtn" type="button"><span>📁</span> Browse Files</button>
-              <input type="file" id="fileInput" accept=".pdf,.txt,.md" multiple aria-label="File input" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none;overflow:hidden;" />
+            <!-- UPLOAD ZONE — Drop zone + explicit file button (bypasses hCaptcha interception) -->
+            <div class="upload-zone" id="uploadZone">
+              <span class="upload-icon-big">☁️</span>
+              <span class="upload-title">Drop files here</span>
+              <span class="upload-subtitle">PDF &nbsp;·&nbsp; DOCX &nbsp;·&nbsp; TXT &nbsp;·&nbsp; MD</span>
+              <label class="upload-browse-pill" for="fileInput">📁 Choose Files</label>
+              <input type="file" id="fileInput" accept=".pdf,.txt,.md,.docx" multiple style="display:none" />
             </div>
             <div class="uploaded-files" id="uploadedFiles" hidden>
               <div class="files-header">

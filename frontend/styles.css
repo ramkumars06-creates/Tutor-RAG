@@ -1297,3 +1297,87 @@ body {
 .upload-title             { pointer-events: none; }
 .upload-subtitle          { pointer-events: none; }
 .btn-upload-browse        { pointer-events: all; cursor: pointer; position: relative; z-index: 2; }
+
+/* -- Upload Input Overlay (Full Zone Coverage) -- */
+.upload-zone {
+  position: relative;
+  cursor: pointer;
+}
+.upload-input-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.upload-animation, .upload-circle, .upload-rings, .ring, .upload-main-icon,
+.upload-title, .upload-subtitle { pointer-events: none; }
+.btn-upload-browse { pointer-events: none; cursor: pointer; }
+
+/* -- File Upload Label Approach (most reliable) -- */
+.upload-zone { display: block; cursor: pointer; position: relative; }
+.file-input-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0; overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------
+   FINAL UPLOAD ZONE — Clean Reset (overrides all previous rules)
+   -------------------------------------------- */
+label.upload-zone {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.6rem !important;
+  padding: 2.5rem 1.5rem !important;
+  border: 2px dashed rgba(124,106,255,0.4) !important;
+  border-radius: 16px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  overflow: visible !important;
+  background: rgba(124,106,255,0.03) !important;
+  transition: border-color 0.3s, background 0.3s !important;
+  text-align: center !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin-bottom: 1.25rem !important;
+}
+label.upload-zone:hover {
+  border-color: #7c6aff !important;
+  background: rgba(124,106,255,0.08) !important;
+}
+label.upload-zone.dragging {
+  border-color: #00d4ff !important;
+  background: rgba(0,212,255,0.06) !important;
+}
+label.upload-zone > span,
+label.upload-zone > p {
+  pointer-events: none !important;
+  display: block !important;
+}
+.upload-icon-big {
+  font-size: 3rem !important;
+  line-height: 1 !important;
+  pointer-events: none !important;
+}
+.upload-browse-pill {
+  display: inline-block !important;
+  margin-top: 0.4rem !important;
+  padding: 0.5rem 1.4rem !important;
+  border-radius: 100px !important;
+  background: linear-gradient(135deg, #7c6aff, #00d4ff) !important;
+  color: #fff !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  pointer-events: none !important;
+  letter-spacing: 0.03em !important;
+}

@@ -58,66 +58,74 @@ window.showToast = showToast;
 const uploadZone = $('uploadZone');
 const fileInput  = $('fileInput');
 
-// Prevent browser from opening files dropped outside the upload zone
-document.addEventListener('dragover',  (e) => e.preventDefault());
-document.addEventListener('drop',      (e) => e.preventDefault());
+// Stop browser opening files dropped outside the zone
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop',     (e) => e.preventDefault());
 
-// Browse button
-$('browseBtn').addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
-uploadZone.addEventListener('click',   () => fileInput.click());
-uploadZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+// label for="fileInput" handles click → opens file dialog (pure HTML, no JS needed)
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length) { handleFiles(files); fileInput.value = ''; }
+});
 
-// Drag & Drop — use a counter to avoid false dragleave when hovering child elements
+// Drag & Drop
 let dragCounter = 0;
-
-uploadZone.addEventListener('dragenter', (e) => {
-  e.preventDefault();
-  dragCounter++;
-  uploadZone.classList.add('dragging');
-});
-
-uploadZone.addEventListener('dragleave', (e) => {
-  e.preventDefault();
-  dragCounter--;
-  if (dragCounter === 0) uploadZone.classList.remove('dragging');
-});
-
-uploadZone.addEventListener('dragover', (e) => {
-  e.preventDefault(); // Required for drop to fire
-});
-
-uploadZone.addEventListener('drop', (e) => {
-  e.preventDefault();
-  dragCounter = 0;
-  uploadZone.classList.remove('dragging');
+uploadZone.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; uploadZone.classList.add('dragging'); });
+uploadZone.addEventListener('dragleave', ()  => { if (--dragCounter <= 0) { dragCounter = 0; uploadZone.classList.remove('dragging'); } });
+uploadZone.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+uploadZone.addEventListener('drop',      (e) => {
+  e.preventDefault(); dragCounter = 0; uploadZone.classList.remove('dragging');
   const files = Array.from(e.dataTransfer.files);
   if (files.length) handleFiles(files);
 });
 
-fileInput.addEventListener('change', () => handleFiles(Array.from(fileInput.files)));
-
-
 async function handleFiles(files) {
-  const valid = files.filter(f => f.name.match(/\.(pdf|txt|md)$/i));
-  if (!valid.length) { showToast('Only PDF, TXT, and MD files are supported', 'warning'); return; }
+  const valid = files.filter(f => f.name.match(/\.(pdf|txt|md|docx)$/i));
+  if (!valid.length) { showToast('Supported: PDF, DOCX, TXT, MD files', 'warning'); return; }
+  let addedCount = 0;
   for (const file of valid) {
     if (state.uploadedFiles.find(f => f.name === file.name && f.size === file.size)) continue;
     state.uploadedFiles.push(file);
+    addedCount++;
+    showToast(`Reading ${file.name}...`, 'info', 1500);
     const text = await extractText(file);
     state.extractedText += `\n\n--- ${file.name} ---\n${text}`;
   }
-  renderFileList();
-  showToast(`${valid.length} file(s) uploaded`, 'success');
+  if (addedCount > 0) {
+    renderFileList();
+    showToast(`${addedCount} file(s) added ✅`, 'success');
+  } else {
+    showToast('File already uploaded', 'info');
+  }
 }
 
 async function extractText(file) {
-  if (file.name.endsWith('.pdf')) return await extractPdfText(file);
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf'))  return await extractPdfText(file);
+  if (name.endsWith('.docx')) return await extractDocxText(file);
+  // TXT, MD — plain text
   return new Promise(resolve => {
     const r = new FileReader();
     r.onload = e => resolve(e.target.result);
+    r.onerror = () => resolve('[Could not read file]');
     r.readAsText(file);
   });
 }
+
+async function extractDocxText(file) {
+  try {
+    if (typeof mammoth === 'undefined') throw new Error('Mammoth.js not loaded');
+    const buf = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    if (!result.value) throw new Error('No text found in document');
+    return result.value;
+  } catch (e) {
+    console.error('DOCX error:', e);
+    showToast('Could not read DOCX — try saving as PDF and uploading that', 'warning', 6000);
+    return '[DOCX content could not be extracted — please paste text manually]';
+  }
+}
+
 
 async function extractPdfText(file) {
   try {
@@ -146,7 +154,7 @@ function renderFileList() {
   list.innerHTML = '';
   state.uploadedFiles.forEach((file, idx) => {
     const ext = file.name.split('.').pop().toUpperCase();
-    const icons = { PDF: '📄', TXT: '📝', MD: '📋' };
+    const icons = { PDF: '📄', TXT: '📝', MD: '📋', DOCX: '📘' };
     const li = document.createElement('li');
     li.className = 'file-item';
     li.innerHTML = `
