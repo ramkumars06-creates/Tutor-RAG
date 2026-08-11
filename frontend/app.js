@@ -422,28 +422,65 @@ NOTES:\n${truncated}`,
   return prompts[type];
 }
 
+/* ─── GEMINI DIRECT API (no backend needed) ─── */
+const GEMINI_API_KEY  = 'AQ.Ab8RN6KEy1Izg54yAgd9uw7gBrQ_A49632P_aWwKtRTXSIQCPA'; // ← paste your key here
+const GEMINI_API_URL  = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+const DAILY_LIMIT     = 20; // requests per user per day (client-side)
+
+function getTodayKey() {
+  const d = new Date(); return `prt_quota_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}`;
+}
+function getUsedToday() { return parseInt(localStorage.getItem(getTodayKey()) || '0'); }
+function incrementUsed() {
+  const used = getUsedToday() + 1;
+  localStorage.setItem(getTodayKey(), used);
+  updateQuotaUI(used, DAILY_LIMIT);
+  return used;
+}
+
 async function generateViaBackend(type, notes, difficulty) {
-  const token = await window.getIdToken();
+  // Client-side quota check
+  const used = getUsedToday();
+  if (used >= DAILY_LIMIT) throw new Error(`Daily limit of ${DAILY_LIMIT} requests reached. Try again tomorrow.`);
+
   const prompt = buildPrompt(type, notes, difficulty);
 
-  const res = await fetch(`${window.AUTH.backendUrl}/api/generate`, {
+  const res = await fetch(curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent" \
+  -H 'Content-Type: application/json' \
+  -H 'X-goog-api-key: AQ.Ab8RN6KEy1Izg54yAgd9uw7gBrQ_A49632P_aWwKtRTXSIQCPA' \
+  -X POST \
+  -d '{
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "Explain how AI works in a few words"
+          }
+        ]
+      }
+    ]
+  }', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ prompt, type }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
+    }),
   });
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    // Rate limit hit
-    if (res.status === 429) throw new Error(data.message || 'Daily limit reached');
-    throw new Error(data.error || `Server error ${res.status}`);
+    if (res.status === 429) throw new Error('Gemini rate limit hit. Please wait a moment and try again.');
+    if (res.status === 400) throw new Error('Invalid API key. Please check your Gemini API key in app.js.');
+    throw new Error(data?.error?.message || `Gemini API error ${res.status}`);
   }
 
   const data = await res.json();
-  const parsed = parseJSON(data.result);
+  const result = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!result) throw new Error('Empty response from Gemini. Please try again.');
+
+  incrementUsed();
+  const parsed = parseJSON(result);
 
   switch (type) {
     case 'quiz':      state.generated.quiz      = parsed; renderQuiz(parsed);      break;
@@ -452,6 +489,7 @@ async function generateViaBackend(type, notes, difficulty) {
     case 'shortcuts': state.generated.shortcuts = parsed; renderShortcuts(parsed); break;
   }
 }
+
 
 function parseJSON(text) {
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -719,18 +757,11 @@ function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// Expose fetchQuotaStatus to auth.js
-window.fetchQuotaStatus = async function() {
-  try {
-    const token = await window.getIdToken();
-    const res = await fetch(`${window.AUTH.backendUrl}/api/rate-status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (window.updateQuotaUI) window.updateQuotaUI(data.used, data.limit);
-  } catch (e) { console.warn('Quota fetch failed:', e.message); }
+// Quota is now tracked locally via localStorage (no backend needed)
+window.fetchQuotaStatus = function() {
+  updateQuotaUI(getUsedToday(), DAILY_LIMIT);
 };
+window.updateQuotaUI = updateQuotaUI;
 
 /* ─── INIT ─── */
 updateTimerDisplay();
