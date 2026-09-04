@@ -1,0 +1,19 @@
+[[redirects]]
+  from = "/*"
+  to   = "/index.html"
+  status = 200
+
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Permissions-Policy     = "camera=(), microphone=(), geolocation=()"
+
+# Disable Netlify bot protection which can intercept file input clicks
+[build.environment]
+  NETLIFY_FORMS_DISABLE = "true"

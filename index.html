@@ -3,15 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PR's Tutor RAG — AI-Powered Study Sessions</title>
-  <meta name="description" content="PR's Tutor RAG — Upload your notes, set study timers, and let AI generate quizzes, sample questions, summaries, and shortcuts for effective learning." />
+  <title>PR's Tutor — AI Interactive Teaching Application</title>
+  <meta name="description" content="PR's Tutor — Interactive AI Teaching Platform. Upload teaching materials, generate interactive quizzes, key concept summaries, exam questions, and memory shortcuts for effective teaching." />
+
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Mammoth.js — DOCX (Word) support -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+  <!-- Google Identity Services (GSI) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
+
+  <!-- Animated Background -->
   <div class="bg-orbs" aria-hidden="true">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
@@ -20,322 +33,271 @@
   </div>
   <div class="grid-overlay" aria-hidden="true"></div>
 
-  <header class="app-header" role="banner">
-    <div class="header-inner">
-      <div class="brand">
-        <div class="brand-logo" aria-hidden="true">
-          <span class="logo-icon">🧠</span>
-          <div class="logo-pulse"></div>
-        </div>
-        <div class="brand-text">
-          <h1 class="brand-name">PR's Tutor <span class="brand-tag">RAG</span></h1>
-          <p class="brand-subtitle">AI-Powered Study Intelligence</p>
-        </div>
+  <!-- ═══════════ LOGIN SCREEN ═══════════ -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card" role="main">
+      <div class="login-logo" aria-hidden="true">
+        <span class="login-brain">🎓</span>
+        <div class="login-glow-ring"></div>
       </div>
-      <nav class="header-nav" role="navigation" aria-label="Main navigation">
-        <button class="nav-btn active" data-section="session" id="nav-session">
-          <span class="nav-icon">📚</span> Study Session
+      <h1 class="login-title">PR's Teaching <span class="brand-tag">Assistant</span></h1>
+      <p class="login-subtitle">AI-Powered Classroom Intelligence Platform</p>
+      <p class="login-desc">
+        Upload syllabus, lecture notes, or documents. Instantly transform them into interactive quizzes, 
+        curated exam questions, structured lesson notes &amp; memory shortcuts.
+      </p>
+
+      <div class="login-features">
+        <div class="feature-pill">🎯 Interactive Quizzes</div>
+        <div class="feature-pill">📝 Lesson Summaries</div>
+        <div class="feature-pill">❓ Exam Assessments</div>
+        <div class="feature-pill">⚡ Mnemonics</div>
+      </div>
+
+      <!-- Google Sign-In Button -->
+      <div class="google-signin-wrapper">
+        <div id="googleSignInBtn"></div>
+        <p class="signin-note">Free · Secure Educator Portal</p>
+      </div>
+
+      <!-- Fallback manual sign-in if GSI fails -->
+      <div class="signin-fallback" id="signinFallback" hidden>
+        <button class="btn-google-signin" id="manualSignInBtn" type="button">
+          <svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Continue with Google
         </button>
-        <button class="nav-btn" data-section="quiz" id="nav-quiz">
-          <span class="nav-icon">🎯</span> Quiz
-        </button>
-        <button class="nav-btn" data-section="questions" id="nav-questions">
-          <span class="nav-icon">❓</span> Questions
-        </button>
-        <button class="nav-btn" data-section="notes" id="nav-notes">
-          <span class="nav-icon">📝</span> Notes
-        </button>
-        <button class="nav-btn" data-section="shortcuts" id="nav-shortcuts">
-          <span class="nav-icon">⚡</span> Shortcuts
-        </button>
-      </nav>
-      <div class="header-actions">
-        <button class="api-key-btn" id="apiKeyBtn" title="Set Gemini API Key" aria-label="Configure API Key">
-          <span>🔑</span> API Key
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="app-main" id="mainContent" role="main">
-
-    <!-- STUDY SESSION -->
-    <section class="section active" id="section-session" aria-label="Study Session">
-      <div class="section-header">
-        <h2 class="section-title"><span class="section-icon">📚</span> Study Session</h2>
-        <p class="section-desc">Upload your notes and configure your study session to unlock AI-powered learning</p>
-      </div>
-      <div class="session-grid">
-        <div class="glass-card upload-card" id="uploadCard">
-          <div class="card-header">
-            <span class="card-icon">📄</span>
-            <h3>Upload Study Notes</h3>
-          </div>
-          <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload notes - drag and drop or click to browse">
-            <div class="upload-animation" aria-hidden="true">
-              <div class="upload-circle">
-                <span class="upload-main-icon">☁️</span>
-              </div>
-              <div class="upload-rings">
-                <div class="ring ring-1"></div>
-                <div class="ring ring-2"></div>
-                <div class="ring ring-3"></div>
-              </div>
-            </div>
-            <p class="upload-title">Drop your notes here</p>
-            <p class="upload-subtitle">Supports <strong>PDF</strong>, <strong>TXT</strong>, <strong>MD</strong> files</p>
-            <button class="btn-upload-browse" id="browseBtn" type="button">
-              <span>📁</span> Browse Files
-            </button>
-            <input type="file" id="fileInput" accept=".pdf,.txt,.md" multiple hidden aria-label="File input" />
-          </div>
-          <div class="uploaded-files" id="uploadedFiles" hidden>
-            <div class="files-header">
-              <h4>📋 Uploaded Notes</h4>
-              <button class="btn-clear-files" id="clearFilesBtn" type="button">Clear All</button>
-            </div>
-            <ul class="files-list" id="filesList" aria-label="Uploaded files"></ul>
-          </div>
-          <div class="manual-input-section">
-            <div class="divider"><span>or paste text directly</span></div>
-            <textarea id="manualNotes" class="manual-textarea" placeholder="Paste your study notes here... The AI will analyze them to generate quizzes, summaries, and more." rows="6" aria-label="Paste study notes manually"></textarea>
-            <div class="char-count" id="charCount">0 characters</div>
-          </div>
-        </div>
-
-        <div class="timer-config-col">
-          <div class="glass-card timer-card">
-            <div class="card-header">
-              <span class="card-icon">⏱️</span>
-              <h3>Study Timer</h3>
-            </div>
-            <div class="timer-presets" role="group" aria-label="Timer presets">
-              <button class="preset-btn active" data-minutes="25" id="preset-25">25 min</button>
-              <button class="preset-btn" data-minutes="45" id="preset-45">45 min</button>
-              <button class="preset-btn" data-minutes="60" id="preset-60">60 min</button>
-              <button class="preset-btn" data-minutes="90" id="preset-90">90 min</button>
-            </div>
-            <div class="custom-time-row">
-              <label for="customMinutes" class="time-label">Custom (minutes):</label>
-              <input type="number" id="customMinutes" class="time-input" min="1" max="480" placeholder="e.g. 30" />
-            </div>
-            <div class="timer-display" aria-live="polite" aria-label="Timer display">
-              <div class="timer-ring-container">
-                <svg class="timer-svg" viewBox="0 0 200 200" aria-hidden="true">
-                  <circle class="timer-bg-circle" cx="100" cy="100" r="85" />
-                  <circle class="timer-progress-circle" id="timerProgressCircle" cx="100" cy="100" r="85" />
-                </svg>
-                <div class="timer-center">
-                  <span class="timer-time" id="timerDisplay">25:00</span>
-                  <span class="timer-label-text" id="timerStatus">Ready</span>
-                </div>
-              </div>
-            </div>
-            <div class="timer-controls" role="group">
-              <button class="btn-timer" id="startTimerBtn" type="button">
-                <span id="startBtnIcon">▶</span> <span id="startBtnText">Start</span>
-              </button>
-              <button class="btn-timer btn-secondary" id="resetTimerBtn" type="button">↺ Reset</button>
-            </div>
-            <div class="session-info">
-              <div class="info-badge"><span class="info-icon">🍅</span> <span id="pomodoroCount">0</span> Pomodoros</div>
-              <div class="info-badge"><span class="info-icon">⏳</span> <span id="totalStudied">0m</span> Studied</div>
-            </div>
-          </div>
-
-          <div class="glass-card generate-card">
-            <div class="card-header">
-              <span class="card-icon">✨</span>
-              <h3>AI Generation</h3>
-            </div>
-            <p class="generate-desc">Let AI analyze your notes and generate personalized study materials</p>
-            <div class="generate-options">
-              <label class="gen-option">
-                <input type="checkbox" checked id="chkQuiz" /> <span class="option-icon">🎯</span> Quizzes
-              </label>
-              <label class="gen-option">
-                <input type="checkbox" checked id="chkQuestions" /> <span class="option-icon">❓</span> Sample Questions
-              </label>
-              <label class="gen-option">
-                <input type="checkbox" checked id="chkNotes" /> <span class="option-icon">📝</span> Smart Notes
-              </label>
-              <label class="gen-option">
-                <input type="checkbox" checked id="chkShortcuts" /> <span class="option-icon">⚡</span> Shortcuts
-              </label>
-            </div>
-            <div class="difficulty-row">
-              <label for="difficultySelect" class="difficulty-label">Difficulty:</label>
-              <select id="difficultySelect" class="difficulty-select">
-                <option value="beginner">🟢 Beginner</option>
-                <option value="intermediate" selected>🟡 Intermediate</option>
-                <option value="advanced">🔴 Advanced</option>
-              </select>
-            </div>
-            <button class="btn-generate" id="generateBtn" type="button">
-              <span class="btn-glow"></span>
-              <span class="btn-content"><span class="gen-icon">🚀</span> Generate Study Materials</span>
-            </button>
-            <div class="generate-status" id="generateStatus" hidden>
-              <div class="status-spinner" aria-hidden="true"></div>
-              <span id="statusText">Analyzing your notes...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- QUIZ -->
-    <section class="section" id="section-quiz" aria-label="Quiz">
-      <div class="section-header">
-        <h2 class="section-title"><span class="section-icon">🎯</span> AI-Generated Quiz</h2>
-        <p class="section-desc">Test your knowledge with AI-crafted questions based on your notes</p>
-      </div>
-      <div class="empty-state" id="quizEmpty">
-        <div class="empty-icon">🎯</div>
-        <h3>No Quiz Generated Yet</h3>
-        <p>Upload your notes and click "Generate Study Materials" to create a personalized quiz</p>
-        <button class="btn-goto-session" onclick="switchSection('session')">Go to Study Session</button>
-      </div>
-      <div class="quiz-container" id="quizContainer" hidden>
-        <div class="quiz-header-bar">
-          <div class="quiz-meta">
-            <span class="meta-badge" id="quizDifficulty">Difficulty: —</span>
-            <span class="meta-badge" id="quizCount">Questions: —</span>
-          </div>
-          <div class="quiz-actions">
-            <button class="btn-action" id="retakeQuizBtn" type="button">🔄 Retake</button>
-            <button class="btn-action" id="exportQuizBtn" type="button">📥 Export</button>
-          </div>
-        </div>
-        <div class="quiz-progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="quizProgressBar">
-          <div class="quiz-progress-fill" id="quizProgressFill"></div>
-        </div>
-        <div class="quiz-score-panel" id="scorePanel" hidden>
-          <div class="score-circle">
-            <span class="score-num" id="finalScore">0</span>
-            <span class="score-denom" id="finalTotal">/0</span>
-          </div>
-          <div class="score-details">
-            <h3 class="score-title" id="scoreTitle">Great work!</h3>
-            <p class="score-msg" id="scoreMsg">Keep studying to improve your score</p>
-          </div>
-          <button class="btn-generate" id="retakeFromResultBtn" type="button" style="margin-top:1rem">
-            <span class="btn-content"><span class="gen-icon">🔄</span> Try Again</span>
-          </button>
-        </div>
-        <div class="quiz-questions-list" id="quizQuestionsList"></div>
-        <div class="quiz-footer" id="quizFooter">
-          <div class="quiz-nav">
-            <button class="btn-quiz-nav" id="prevQBtn" type="button" disabled>← Prev</button>
-            <span class="q-indicator" id="qIndicator">1 / 10</span>
-            <button class="btn-quiz-nav" id="nextQBtn" type="button">Next →</button>
-          </div>
-          <button class="btn-submit-quiz" id="submitQuizBtn" type="button">Submit Quiz ✓</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- QUESTIONS -->
-    <section class="section" id="section-questions" aria-label="Sample Questions">
-      <div class="section-header">
-        <h2 class="section-title"><span class="section-icon">❓</span> Sample Questions</h2>
-        <p class="section-desc">Practice with exam-style questions generated from your study material</p>
-      </div>
-      <div class="empty-state" id="questionsEmpty">
-        <div class="empty-icon">❓</div>
-        <h3>No Questions Generated Yet</h3>
-        <p>Upload your notes and generate study materials to see sample questions</p>
-        <button class="btn-goto-session" onclick="switchSection('session')">Go to Study Session</button>
-      </div>
-      <div class="questions-container" id="questionsContainer" hidden>
-        <div class="questions-toolbar">
-          <div class="filter-tabs" role="tablist">
-            <button class="filter-tab active" data-filter="all" role="tab">All</button>
-            <button class="filter-tab" data-filter="short" role="tab">Short Answer</button>
-            <button class="filter-tab" data-filter="long" role="tab">Long Answer</button>
-            <button class="filter-tab" data-filter="critical" role="tab">Critical Thinking</button>
-          </div>
-          <button class="btn-action" id="exportQBtn" type="button">📥 Export</button>
-        </div>
-        <div class="questions-list" id="questionsList"></div>
-      </div>
-    </section>
-
-    <!-- NOTES -->
-    <section class="section" id="section-notes" aria-label="Smart Notes">
-      <div class="section-header">
-        <h2 class="section-title"><span class="section-icon">📝</span> Smart Notes</h2>
-        <p class="section-desc">AI-condensed summaries, key concepts, and structured notes from your material</p>
-      </div>
-      <div class="empty-state" id="notesEmpty">
-        <div class="empty-icon">📝</div>
-        <h3>No Notes Generated Yet</h3>
-        <p>Upload your study material and generate smart notes to get organized summaries</p>
-        <button class="btn-goto-session" onclick="switchSection('session')">Go to Study Session</button>
-      </div>
-      <div class="notes-container" id="notesContainer" hidden>
-        <div class="notes-toolbar">
-          <div class="notes-tabs" role="tablist">
-            <button class="notes-tab active" data-tab="summary" role="tab">📋 Summary</button>
-            <button class="notes-tab" data-tab="concepts" role="tab">💡 Key Concepts</button>
-            <button class="notes-tab" data-tab="timeline" role="tab">📅 Key Points</button>
-          </div>
-          <button class="btn-action" id="exportNotesBtn" type="button">📥 Export</button>
-        </div>
-        <div class="notes-content">
-          <div class="notes-panel active" id="panel-summary"></div>
-          <div class="notes-panel" id="panel-concepts"></div>
-          <div class="notes-panel" id="panel-timeline"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SHORTCUTS -->
-    <section class="section" id="section-shortcuts" aria-label="Learning Shortcuts">
-      <div class="section-header">
-        <h2 class="section-title"><span class="section-icon">⚡</span> Learning Shortcuts</h2>
-        <p class="section-desc">Mnemonics, memory tricks, analogies, and quick-recall techniques</p>
-      </div>
-      <div class="empty-state" id="shortcutsEmpty">
-        <div class="empty-icon">⚡</div>
-        <h3>No Shortcuts Generated Yet</h3>
-        <p>Upload your notes and generate shortcuts for quick and effective learning</p>
-        <button class="btn-goto-session" onclick="switchSection('session')">Go to Study Session</button>
-      </div>
-      <div class="shortcuts-container" id="shortcutsContainer" hidden>
-        <div class="shortcuts-grid" id="shortcutsGrid"></div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- API Key Modal -->
-  <div class="modal-overlay" id="apiKeyModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
-    <div class="modal-box">
-      <div class="modal-header">
-        <h2 id="modalTitle">🔑 Configure Gemini API Key</h2>
-        <button class="modal-close" id="modalCloseBtn" type="button" aria-label="Close modal">✕</button>
-      </div>
-      <div class="modal-body">
-        <p class="modal-info">PR's Tutor RAG uses Google's Gemini AI to generate personalized study materials. Your API key is stored locally and never sent to any third-party server.</p>
-        <div class="input-group">
-          <label for="apiKeyInput" class="input-label">Gemini API Key</label>
-          <div class="input-wrapper">
-            <input type="password" id="apiKeyInput" class="api-input" placeholder="AIza..." autocomplete="off" />
-            <button class="toggle-visibility" id="toggleKeyVisibility" type="button" aria-label="Toggle key visibility">👁</button>
-          </div>
-          <p class="input-help">Get your free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio ↗</a></p>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-cancel" id="cancelKeyBtn" type="button">Cancel</button>
-          <button class="btn-save" id="saveKeyBtn" type="button">Save Key 🔑</button>
-        </div>
       </div>
     </div>
   </div>
 
+  <!-- ═══════════ MAIN APP (shown after login) ═══════════ -->
+  <div class="app-wrapper" id="appWrapper" hidden>
+
+    <!-- Header -->
+    <header class="app-header" role="banner">
+      <div class="header-inner">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true">
+            <span class="logo-icon">🎓</span>
+            <div class="logo-pulse"></div>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">PR's Tutor <span class="brand-tag">Teaching App</span></span>
+            <span class="brand-subtitle">AI Classroom Assistant</span>
+          </div>
+        </div>
+
+        <nav class="header-nav" role="navigation" aria-label="Main navigation">
+          <button class="nav-btn active" data-section="session" id="nav-session">
+            <span class="nav-icon">📚</span> Teaching Session
+          </button>
+          <button class="nav-btn" data-section="quiz" id="nav-quiz">
+            <span class="nav-icon">🎯</span> Classroom Quiz
+          </button>
+          <button class="nav-btn" data-section="questions" id="nav-questions">
+            <span class="nav-icon">❓</span> Assessment Questions
+          </button>
+          <button class="nav-btn" data-section="notes" id="nav-notes">
+            <span class="nav-icon">📝</span> Teaching Notes
+          </button>
+          <button class="nav-btn" data-section="shortcuts" id="nav-shortcuts">
+            <span class="nav-icon">⚡</span> Learning Shortcuts
+          </button>
+        </nav>
+
+        <!-- User Profile Pill -->
+        <div class="user-profile" id="userProfile">
+          <img class="user-avatar" id="userAvatar" src="" alt="User avatar" width="36" height="36" />
+          <div class="user-info">
+            <span class="user-name" id="userName">Loading...</span>
+            <span class="user-email" id="userEmail"></span>
+          </div>
+          <button class="btn-signout" id="signOutBtn" title="Sign out" aria-label="Sign out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main" id="mainContent" role="main">
+
+      <!-- ═══ TEACHING SESSION ═══ -->
+      <section class="section active" id="section-session" aria-label="Teaching Session">
+        <div class="section-header">
+          <h2 class="section-title"><span class="section-icon">📚</span> Interactive Teaching Session</h2>
+          <p class="section-desc">Upload course materials or input lesson notes to automatically generate classroom content</p>
+        </div>
+        <div class="session-grid single-column">
+          <div class="glass-card upload-card">
+            <div class="card-header">
+              <span class="card-icon">📄</span>
+              <h3>Course &amp; Lesson Material</h3>
+            </div>
+            <!-- UPLOAD ZONE -->
+            <div class="upload-zone" id="uploadZone">
+              <span class="upload-icon-big">☁️</span>
+              <span class="upload-title">Drop course files here</span>
+              <span class="upload-sub">Supports PDF, DOCX, TXT, Markdown</span>
+              <label for="fileInput" class="btn-browse-files">Browse Files</label>
+              <input type="file" id="fileInput" accept=".pdf,.txt,.md,.docx" multiple hidden />
+            </div>
+
+            <!-- Uploaded Files List -->
+            <div class="uploaded-files-list" id="uploadedFilesList"></div>
+
+            <!-- Or Paste Notes -->
+            <div class="notes-input-group">
+              <label for="manualNotes">Or paste lesson content directly:</label>
+              <textarea id="manualNotes" placeholder="Paste lecture notes, syllabus chapters, key concepts, or topic summaries here..." rows="5"></textarea>
+            </div>
+
+            <!-- Generation Settings -->
+            <div class="gen-settings">
+              <div class="setting-group">
+                <label for="difficultySelect">Target Learning Level:</label>
+                <select id="difficultySelect" class="styled-select">
+                  <option value="Beginner">Beginner / Fundamentals</option>
+                  <option value="Intermediate" selected>Intermediate / High School</option>
+                  <option value="Advanced">Advanced / College &amp; Professional</option>
+                </select>
+              </div>
+
+              <div class="setting-group">
+                <label>Modules to Generate:</label>
+                <div class="checkbox-group">
+                  <label class="cb-label"><input type="checkbox" id="genQuiz" checked /> 🎯 Classroom Quiz</label>
+                  <label class="cb-label"><input type="checkbox" id="genQuestions" checked /> ❓ Assessment Questions</label>
+                  <label class="cb-label"><input type="checkbox" id="genNotes" checked /> 📝 Teaching Notes</label>
+                  <label class="cb-label"><input type="checkbox" id="genShortcuts" checked /> ⚡ Mnemonics &amp; Shortcuts</label>
+                </div>
+              </div>
+
+              <button class="btn-generate" id="generateBtn">
+                <span class="btn-icon">✨</span> Generate Classroom Content
+              </button>
+              <div class="generate-status" id="generateStatus" hidden>
+                <div class="spinner"></div>
+                <span id="statusText">Generating interactive lesson content...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ QUIZ SECTION ═══ -->
+      <section class="section" id="section-quiz" aria-label="Classroom Quiz">
+        <div class="section-header">
+          <h2 class="section-title"><span class="section-icon">🎯</span> Interactive Classroom Quiz</h2>
+          <p class="section-desc">Active recall assessment with automated scoring &amp; explanations</p>
+        </div>
+        <div class="empty-state" id="quizEmpty">
+          <div class="empty-icon">🎯</div>
+          <h3>No Quiz Generated Yet</h3>
+          <p>Upload course notes in the Teaching Session to generate an interactive quiz</p>
+          <button class="btn-goto-session" onclick="switchSection('session')">Go to Teaching Session</button>
+        </div>
+        <div class="quiz-container" id="quizContainer" hidden>
+          <div class="quiz-meta-bar">
+            <span class="quiz-badge" id="quizDifficulty">Difficulty: Intermediate</span>
+            <span class="quiz-badge" id="quizCount">Questions: 0</span>
+            <button class="btn-secondary" id="retakeQuizBtn">Retake Quiz</button>
+          </div>
+          <div class="quiz-progress-bar">
+            <div class="quiz-progress-fill" id="quizProgressFill" style="width: 0%"></div>
+          </div>
+          <div class="quiz-questions-list" id="quizQuestionsList"></div>
+          <div class="quiz-actions">
+            <button class="btn-primary btn-submit-quiz" id="submitQuizBtn">Submit Quiz Answers</button>
+          </div>
+          <div class="score-panel" id="scorePanel" hidden>
+            <div class="score-circle">
+              <span class="score-num" id="finalScore">0</span>
+              <span class="score-denom" id="finalTotal">/0</span>
+            </div>
+            <h3 class="score-title" id="scoreTitle">Great Job!</h3>
+            <p class="score-msg" id="scoreMsg">You answered the quiz questions successfully.</p>
+            <button class="btn-secondary" id="retakeFromResultBtn">Try Again</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ QUESTIONS SECTION ═══ -->
+      <section class="section" id="section-questions" aria-label="Assessment Questions">
+        <div class="section-header">
+          <h2 class="section-title"><span class="section-icon">❓</span> Exam &amp; Assessment Questions</h2>
+          <p class="section-desc">Curated short-answer, essay-style, and conceptual evaluation questions</p>
+        </div>
+        <div class="empty-state" id="questionsEmpty">
+          <div class="empty-icon">❓</div>
+          <h3>No Assessment Questions Generated Yet</h3>
+          <p>Upload material in the Teaching Session to generate exam-ready questions</p>
+          <button class="btn-goto-session" onclick="switchSection('session')">Go to Teaching Session</button>
+        </div>
+        <div class="questions-container" id="questionsContainer" hidden>
+          <div class="q-filter-bar">
+            <button class="filter-chip active" data-qfilter="all">All Questions</button>
+            <button class="filter-chip" data-qfilter="short">Short Answer</button>
+            <button class="filter-chip" data-qfilter="long">Long Answer</button>
+            <button class="filter-chip" data-qfilter="critical">Conceptual</button>
+          </div>
+          <div class="questions-list" id="questionsList"></div>
+        </div>
+      </section>
+
+      <!-- ═══ TEACHING NOTES SECTION ═══ -->
+      <section class="section" id="section-notes" aria-label="Teaching Notes">
+        <div class="section-header">
+          <h2 class="section-title"><span class="section-icon">📝</span> Structured Teaching Notes</h2>
+          <p class="section-desc">AI-condensed lesson summaries, core concepts, and key definitions</p>
+        </div>
+        <div class="empty-state" id="notesEmpty">
+          <div class="empty-icon">📝</div>
+          <h3>No Teaching Notes Generated Yet</h3>
+          <p>Upload course notes in the Teaching Session to generate structured lesson notes</p>
+          <button class="btn-goto-session" onclick="switchSection('session')">Go to Teaching Session</button>
+        </div>
+        <div class="notes-container" id="notesContainer" hidden>
+          <div class="notes-tab-bar">
+            <button class="notes-tab active" data-tab="summary" role="tab">📖 Summary</button>
+            <button class="notes-tab" data-tab="concepts" role="tab">💡 Key Concepts</button>
+            <button class="notes-tab" data-tab="timeline" role="tab">📌 Core Takeaways</button>
+          </div>
+          <div class="notes-content-area" id="notesContentArea"></div>
+        </div>
+      </section>
+
+      <!-- ═══ SHORTCUTS SECTION ═══ -->
+      <section class="section" id="section-shortcuts" aria-label="Learning Shortcuts">
+        <div class="section-header">
+          <h2 class="section-title"><span class="section-icon">⚡</span> Learning Shortcuts &amp; Mnemonics</h2>
+          <p class="section-desc">Acronyms, visual memory tricks, analogies, and quick-recall techniques</p>
+        </div>
+        <div class="empty-state" id="shortcutsEmpty">
+          <div class="empty-icon">⚡</div>
+          <h3>No Shortcuts Generated Yet</h3>
+          <p>Upload course material to generate memory shortcuts for effective learning</p>
+          <button class="btn-goto-session" onclick="switchSection('session')">Go to Teaching Session</button>
+        </div>
+        <div class="shortcuts-container" id="shortcutsContainer" hidden>
+          <div class="shortcuts-grid" id="shortcutsGrid"></div>
+        </div>
+      </section>
+
+    </main>
+  </div><!-- /#appWrapper -->
+
+  <!-- Toast Notifications -->
   <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="app.js"></script>
+  <script src="auth.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
