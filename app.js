@@ -8,7 +8,7 @@
 const state = {
   extractedText: '',
   uploadedFiles: [],
-  fileTexts: {}, // filename_size -> text
+  fileTexts: {},
   generated: { quiz: null, questions: null, notes: null, shortcuts: null },
   quiz: { currentQ: 0, answers: {}, submitted: false, total: 0 },
 };
@@ -31,13 +31,15 @@ $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchSection(
 window.switchSection = switchSection;
 
 /* ─── TOASTS ─── */
-function showToast(msg, type = 'info', duration = 4000) {
-  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+function showToast(msg, type, duration) {
+  type = type || 'info';
+  duration = duration || 4000;
+  const icons = { success: '[OK]', error: '[ERR]', info: '[INFO]', warning: '[WARN]' };
   const container = $('toastContainer');
   if (!container) return;
   const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${escapeHtml(msg)}</span>`;
+  toast.className = 'toast ' + type;
+  toast.innerHTML = '<span class="toast-icon">' + (icons[type] || '') + '</span><span>' + escapeHtml(msg) + '</span>';
   container.appendChild(toast);
   setTimeout(() => {
     toast.classList.add('toast-out');
@@ -47,7 +49,7 @@ function showToast(msg, type = 'info', duration = 4000) {
 window.showToast = showToast;
 
 /* ─── LAUNCH & FILE UPLOAD INITIALIZATION ─── */
-document.addEventListener('DOMContentLoaded', () => {
+function initEvents() {
   // Guest Start Button
   const guestBtn = $('guestStartBtn');
   if (guestBtn) {
@@ -57,12 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (loginScreen && appWrapper) {
         loginScreen.hidden = true;
         appWrapper.hidden = false;
-        showToast('Welcome to PR's Teaching Assistant! 🎓', 'success');
+        showToast('Welcome to PR Teaching Assistant!', 'success');
       }
     });
   }
 
-  // Upload Zone & Browse Files Button
+  // Browse Files & Upload Zone
   const uploadZone = $('uploadZone');
   const browseBtn  = $('browseFilesBtn');
   const fileInput  = $('fileInput');
@@ -102,7 +104,40 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-});
+
+  // Generate Button
+  const genBtn = $('generateBtn');
+  if (genBtn) genBtn.addEventListener('click', startGeneration);
+
+  // Quiz buttons
+  $('submitQuizBtn')?.addEventListener('click', submitQuiz);
+  $('retakeQuizBtn')?.addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
+  $('retakeFromResultBtn')?.addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
+
+  // Question filter chips
+  $$('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      $$('.filter-chip').forEach(c => c.classList.remove('active'));
+      e.target.classList.add('active');
+      renderFilteredQ(e.target.dataset.qfilter);
+    });
+  });
+
+  // Notes tabs
+  $$('.notes-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      $$('.notes-tab').forEach(t => t.classList.remove('active'));
+      e.target.classList.add('active');
+      renderNotesTab(e.target.dataset.tab);
+    });
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initEvents);
+} else {
+  initEvents();
+}
 
 async function handleFiles(files) {
   const valid = files.filter(f => f.name.match(/\.(pdf|txt|md|docx|json)$/i));
@@ -112,21 +147,21 @@ async function handleFiles(files) {
   }
   let addedCount = 0;
   for (const file of valid) {
-    const fileId = `${file.name}_${file.size}`;
-    if (state.uploadedFiles.find(f => `${f.name}_${f.size}` === fileId)) {
-      showToast(`File "${file.name}" is already added`, 'info');
+    const fileId = file.name + '_' + file.size;
+    if (state.uploadedFiles.find(f => (f.name + '_' + f.size) === fileId)) {
+      showToast('File "' + file.name + '" is already added', 'info');
       continue;
     }
     state.uploadedFiles.push(file);
     addedCount++;
-    showToast(`Reading ${file.name}...`, 'info', 1500);
+    showToast('Reading ' + file.name + '...', 'info', 1500);
     const text = await extractText(file);
     state.fileTexts[fileId] = text;
   }
   if (addedCount > 0) {
     rebuildExtractedText();
     renderFileList();
-    showToast(`${addedCount} file(s) added successfully! ✅`, 'success');
+    showToast(addedCount + ' file(s) added successfully!', 'success');
   }
 }
 
@@ -143,8 +178,8 @@ async function extractText(file) {
       return await parseDocx(file);
     }
   } catch (err) {
-    console.error(`Error reading ${file.name}:`, err);
-    try { return await file.text(); } catch { return ''; }
+    console.error('Error reading ' + file.name + ':', err);
+    try { return await file.text(); } catch (e) { return ''; }
   }
   return '';
 }
@@ -190,8 +225,8 @@ async function parseDocx(file) {
 function rebuildExtractedText() {
   state.extractedText = state.uploadedFiles
     .map(file => {
-      const fileId = `${file.name}_${file.size}`;
-      return `--- ${file.name} ---\n${state.fileTexts[fileId] || ''}`;
+      const fileId = file.name + '_' + file.size;
+      return '--- ' + file.name + ' ---\n' + (state.fileTexts[fileId] || '');
     })
     .join('\n\n');
 }
@@ -207,7 +242,7 @@ function renderFileList() {
       <span class="file-icon">${getFileIcon(file.name)}</span>
       <span class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
       <span class="file-size">${formatBytes(file.size)}</span>
-      <button class="btn-remove-file" data-idx="${idx}" title="Remove file" aria-label="Remove file">✕</button>
+      <button type="button" class="btn-remove-file" data-idx="${idx}" title="Remove file" aria-label="Remove file">X</button>
     `;
     list.appendChild(item);
   });
@@ -217,11 +252,11 @@ function renderFileList() {
       const i = parseInt(e.currentTarget.dataset.idx);
       const removed = state.uploadedFiles[i];
       if (removed) {
-        delete state.fileTexts[`${removed.name}_${removed.size}`];
+        delete state.fileTexts[removed.name + '_' + removed.size];
         state.uploadedFiles.splice(i, 1);
         rebuildExtractedText();
         renderFileList();
-        showToast(`Removed ${removed.name}`, 'info');
+        showToast('Removed ' + removed.name, 'info');
       }
     });
   });
@@ -229,10 +264,10 @@ function renderFileList() {
 
 function getFileIcon(filename) {
   const ext = filename.split('.').pop().toLowerCase();
-  if (ext === 'pdf') return '📕';
-  if (ext === 'docx') return '📘';
-  if (ext === 'md') return '📝';
-  return '📄';
+  if (ext === 'pdf') return '[PDF]';
+  if (ext === 'docx') return '[DOCX]';
+  if (ext === 'md') return '[MD]';
+  return '[TXT]';
 }
 
 function formatBytes(bytes) {
@@ -249,11 +284,6 @@ function capitalize(str) {
 }
 
 /* ─── GENERATION DISPATCHER ─── */
-document.addEventListener('DOMContentLoaded', () => {
-  const genBtn = $('generateBtn');
-  if (genBtn) genBtn.addEventListener('click', startGeneration);
-});
-
 async function startGeneration() {
   const notes = getNotesText();
   if (!notes || notes.trim().length < 20) {
@@ -284,17 +314,17 @@ async function startGeneration() {
   try {
     for (let i = 0; i < steps.length; i++) {
       const type = steps[i];
-      updateStatus(`Generating ${type} (${i + 1}/${steps.length})...`);
+      updateStatus('Generating ' + type + ' (' + (i + 1) + '/' + steps.length + ')...');
       await generateContent(type, notes, difficulty);
       await sleep(200);
     }
     setGenerating(false);
-    showToast('Classroom content generated successfully! 🎉', 'success');
+    showToast('Classroom content generated successfully!', 'success');
     switchSection(steps[0]);
   } catch (err) {
     setGenerating(false);
     console.error(err);
-    showToast(`Generation failed: ${err.message}`, 'error', 6000);
+    showToast('Generation failed: ' + err.message, 'error', 6000);
   }
 }
 
@@ -346,17 +376,17 @@ function generateOfflineFallback(type, notes, difficulty) {
     const count = Math.min(8, Math.max(4, sentences.length));
 
     for (let i = 0; i < count; i++) {
-      const sentence = sentences[i % sentences.length] || `Concept ${i + 1} from lecture notes.`;
+      const sentence = sentences[i % sentences.length] || (`Concept ${i + 1} from lecture notes.`);
       const sWords = sentence.split(/\s+/);
       const keyTerm = sWords.find(w => w.length > 5 && !['because', 'however', 'through', 'between', 'without'].includes(w.toLowerCase())) || sWords[0] || 'Concept';
       
-      const questionText = `According to the lecture material, what is key regarding "${keyTerm.replace(/[^a-zA-Z0-9]/g, '')}"?`;
+      const questionText = 'According to the lecture material, what is key regarding "' + keyTerm.replace(/[^a-zA-Z0-9]/g, '') + '"?';
       const correctAnswer = sentence.length > 100 ? sentence.slice(0, 90) + '...' : sentence;
 
       const distractors = [
-        `It is unrelated to ${keyTerm} and applies only to secondary subjects.`,
-        `It contradicts standard principles defined in chapter ${i + 1}.`,
-        `It operates in inverse sequence to ${keyTerm}.`
+        'It is unrelated to ' + keyTerm + ' and applies only to secondary subjects.',
+        'It contradicts standard principles defined in chapter ' + (i + 1) + '.',
+        'It operates in inverse sequence to ' + keyTerm + '.'
       ];
 
       const options = [correctAnswer, ...distractors].sort(() => 0.5 - Math.random());
@@ -366,11 +396,11 @@ function generateOfflineFallback(type, notes, difficulty) {
         question: questionText,
         options: options,
         answer: answerIndex,
-        explanation: `Directly highlighted in lesson material: "${sentence}"`
+        explanation: 'Directly highlighted in lesson material: "' + sentence + '"'
       });
     }
 
-    return { topic: title, difficulty: difficulty || 'Intermediate', questions };
+    return { topic: title, difficulty: difficulty || 'Intermediate', questions: questions };
   }
 
   if (type === 'questions') {
@@ -381,20 +411,20 @@ function generateOfflineFallback(type, notes, difficulty) {
         ...keyTerms.slice(0, 4).map((t, idx) => ({
           id: idx + 1,
           type: 'short',
-          question: `Explain the fundamental role of "${t}" within this module.`,
-          answer: `Key concept detailing ${t} and its core properties in the lesson.`
+          question: 'Explain the fundamental role of "' + t + '" within this module.',
+          answer: 'Key concept detailing ' + t + ' and its core properties in the lesson.'
         })),
         ...keyTerms.slice(4, 7).map((t, idx) => ({
           id: idx + 5,
           type: 'long',
-          question: `Analyze how "${t}" influences the broader system presented in the course notes.`,
-          answer: `Comprehensive discussion covering characteristics, applications, and theoretical implications of ${t}.`
+          question: 'Analyze how "' + t + '" influences the broader system presented in the course notes.',
+          answer: 'Comprehensive discussion covering characteristics, applications, and theoretical implications of ' + t + '.'
         })),
         {
           id: 8,
           type: 'critical',
-          question: `Synthesize the primary takeaways from this chapter and compare key mechanisms discussed.`,
-          answer: `Evaluation of core concepts: ${keyTerms.join(', ')}.`
+          question: 'Synthesize the primary takeaways from this chapter and compare key mechanisms discussed.',
+          answer: 'Evaluation of core concepts: ' + keyTerms.join(', ') + '.'
         }
       ]
     };
@@ -404,7 +434,7 @@ function generateOfflineFallback(type, notes, difficulty) {
     const keyConcepts = sentences.slice(0, 6).map((s, idx) => {
       const parts = s.split(':');
       return {
-        term: parts.length > 1 ? parts[0] : `Concept ${idx + 1}`,
+        term: parts.length > 1 ? parts[0] : ('Concept ' + (idx + 1)),
         definition: s
       };
     });
@@ -425,20 +455,20 @@ function generateOfflineFallback(type, notes, difficulty) {
         {
           type: 'mnemonic',
           topic: 'Key Terms Memory Rule',
-          content: `Remember core elements using acronym: ${acronym} (${terms.join(' - ')})`,
+          content: 'Remember core elements using acronym: ' + acronym + ' (' + terms.join(' - ') + ')',
           highlight: acronym
         },
         {
           type: 'analogy',
           topic: 'Lesson Analogy',
-          content: `Think of ${terms[0] || 'the main concept'} as the foundation, driving ${terms[1] || 'the primary processes'} throughout the module.`,
+          content: 'Think of ' + (terms[0] || 'the main concept') + ' as the foundation, driving ' + (terms[1] || 'the primary processes') + ' throughout the module.',
           highlight: terms[0] || 'Foundation'
         },
         {
           type: 'trick',
           topic: 'Quick Recall Rule',
-          content: `Whenever evaluating ${terms[2] || 'this topic'}, link it directly to ${terms[0] || 'the primary term'}.`,
-          highlight: `Link ${terms[2] || 'Term'} ➔ ${terms[0] || 'Base'}`
+          content: 'Whenever evaluating ' + (terms[2] || 'this topic') + ', link it directly to ' + (terms[0] || 'the primary term') + '.',
+          highlight: 'Link ' + (terms[2] || 'Term') + ' -> ' + (terms[0] || 'Base')
         }
       ]
     };
@@ -450,8 +480,8 @@ function renderQuiz(data) {
   if (!$('quizEmpty') || !$('quizContainer')) return;
   $('quizEmpty').hidden = true;
   $('quizContainer').hidden = false;
-  $('quizDifficulty').textContent = `Level: ${capitalize(data.difficulty || 'Intermediate')}`;
-  $('quizCount').textContent = `Questions: ${data.questions.length}`;
+  $('quizDifficulty').textContent = 'Level: ' + capitalize(data.difficulty || 'Intermediate');
+  $('quizCount').textContent = 'Questions: ' + data.questions.length;
   const list = $('quizQuestionsList');
   list.innerHTML = '';
   state.quiz = { currentQ: 0, answers: {}, submitted: false, total: data.questions.length };
@@ -459,8 +489,8 @@ function renderQuiz(data) {
 
   data.questions.forEach((q, idx) => {
     const card = document.createElement('div');
-    card.className = `quiz-q-card ${idx === 0 ? 'active' : ''}`;
-    card.id = `quiz-q-${idx}`;
+    card.className = 'quiz-q-card ' + (idx === 0 ? 'active' : '');
+    card.id = 'quiz-q-' + idx;
     card.innerHTML = `
       <div class="q-number">Question ${idx + 1} of ${data.questions.length}</div>
       <p class="q-text">${escapeHtml(q.question)}</p>
@@ -473,7 +503,7 @@ function renderQuiz(data) {
         `).join('')}
       </div>
       <div class="q-explanation" id="exp-${idx}" style="display:none">
-        💡 <strong>Explanation:</strong> ${escapeHtml(q.explanation || 'Refer to lesson notes.')}
+        <strong>Explanation:</strong> ${escapeHtml(q.explanation || 'Refer to lesson notes.')}
       </div>
     `;
     list.appendChild(card);
@@ -484,22 +514,16 @@ function renderQuiz(data) {
       const qIdx = parseInt(e.target.dataset.qidx);
       state.quiz.answers[qIdx] = parseInt(e.target.value);
       const answeredCount = Object.keys(state.quiz.answers).length;
-      $('quizProgressFill').style.width = `${(answeredCount / data.questions.length) * 100}%`;
+      $('quizProgressFill').style.width = ((answeredCount / data.questions.length) * 100) + '%';
     });
   });
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  $('submitQuizBtn')?.addEventListener('click', submitQuiz);
-  $('retakeQuizBtn')?.addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
-  $('retakeFromResultBtn')?.addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
-});
 
 function submitQuiz() {
   if (state.quiz.submitted) return;
   const qs = state.generated.quiz?.questions || [];
   if (Object.keys(state.quiz.answers).length < qs.length) {
-    showToast(`${qs.length - Object.keys(state.quiz.answers).length} question(s) unanswered`, 'warning');
+    showToast((qs.length - Object.keys(state.quiz.answers).length) + ' question(s) unanswered', 'warning');
     return;
   }
   state.quiz.submitted = true;
@@ -507,23 +531,23 @@ function submitQuiz() {
   qs.forEach((q, idx) => {
     const correct = q.answer !== undefined ? q.answer : q.correctIndex;
     const chosen  = state.quiz.answers[idx];
-    document.querySelectorAll(`#quiz-q-${idx} .q-option-label`).forEach((lbl, oIdx) => {
+    document.querySelectorAll('#quiz-q-' + idx + ' .q-option-label').forEach((lbl, oIdx) => {
       if (oIdx === correct) lbl.classList.add('correct');
       if (oIdx === chosen && oIdx !== correct) lbl.classList.add('incorrect');
     });
     if (chosen === correct) score++;
-    const exp = $(`exp-${idx}`);
+    const exp = $('exp-' + idx);
     if (exp) exp.style.display = 'block';
-    document.querySelectorAll(`input[name="quiz-q-${idx}"]`).forEach(r => r.disabled = true);
+    document.querySelectorAll('input[name="quiz-q-' + idx + '"]').forEach(r => r.disabled = true);
   });
   $('finalScore').textContent = score;
-  $('finalTotal').textContent = `/${qs.length}`;
+  $('finalTotal').textContent = '/' + qs.length;
   const pct = Math.round((score / qs.length) * 100);
-  $('scoreTitle').textContent = pct >= 90 ? 'Excellent! 🏆' : pct >= 70 ? 'Great Work! 🌟' : pct >= 50 ? 'Good Effort! 👍' : 'Keep Studying! 📚';
+  $('scoreTitle').textContent = pct >= 90 ? 'Excellent!' : pct >= 70 ? 'Great Work!' : pct >= 50 ? 'Good Effort!' : 'Keep Studying!';
   $('scoreMsg').textContent   = pct >= 70 ? 'Solid understanding of lesson material!' : 'Review the lesson notes and try again.';
   $('scorePanel').hidden = false;
   $('quizProgressFill').style.width = '100%';
-  showToast(`Score: ${score}/${qs.length} (${pct}%)`, pct >= 70 ? 'success' : 'info', 5000);
+  showToast('Score: ' + score + '/' + qs.length + ' (' + pct + '%)', pct >= 70 ? 'success' : 'info', 5000);
 }
 
 /* ─── RENDER: QUESTIONS ─── */
@@ -562,16 +586,6 @@ function renderFilteredQ(filter) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  $$('.filter-chip').forEach(chip => {
-    chip.addEventListener('click', (e) => {
-      $$('.filter-chip').forEach(c => c.classList.remove('active'));
-      e.target.classList.add('active');
-      renderFilteredQ(e.target.dataset.qfilter);
-    });
-  });
-});
-
 /* ─── RENDER: NOTES ─── */
 function renderNotes(data) {
   if (!$('notesEmpty') || !$('notesContainer')) return;
@@ -588,7 +602,7 @@ function renderNotesTab(tab) {
   if (tab === 'summary') {
     area.innerHTML = `
       <div class="notes-summary-box">
-        <h3>📖 Lesson Summary</h3>
+        <h3>Lesson Summary</h3>
         <p>${escapeHtml(d.summary || 'Summary generated from lesson materials.')}</p>
       </div>
     `;
@@ -597,7 +611,7 @@ function renderNotesTab(tab) {
       <div class="concepts-grid">
         ${(d.keyConcepts || []).map(c => `
           <div class="concept-card">
-            <h4>💡 ${escapeHtml(c.term || c.title)}</h4>
+            <h4>${escapeHtml(c.term || c.title)}</h4>
             <p>${escapeHtml(c.definition || c.description)}</p>
           </div>
         `).join('')}
@@ -606,7 +620,7 @@ function renderNotesTab(tab) {
   } else if (tab === 'timeline') {
     area.innerHTML = `
       <div class="keypoints-list">
-        <h3>📌 Core Takeaways</h3>
+        <h3>Core Takeaways</h3>
         <ul>
           ${(d.keyPoints || d.summaryBullets || []).map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}
         </ul>
@@ -614,16 +628,6 @@ function renderNotesTab(tab) {
     `;
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  $$('.notes-tab').forEach(tab => {
-    tab.addEventListener('click', (e) => {
-      $$('.notes-tab').forEach(t => t.classList.remove('active'));
-      e.target.classList.add('active');
-      renderNotesTab(e.target.dataset.tab);
-    });
-  });
-});
 
 /* ─── RENDER: SHORTCUTS ─── */
 function renderShortcuts(data) {
