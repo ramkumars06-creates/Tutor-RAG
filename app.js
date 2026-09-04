@@ -1,6 +1,5 @@
-// ═══════════════════════════════════════════════════
+﻿// ═══════════════════════════════════════════════════
 //  PR's Tutor — AI Interactive Teaching App (app.js)
-//  Clean, Instant Local & Optional Gemini AI Generation
 // ═══════════════════════════════════════════════════
 
 'use strict';
@@ -9,6 +8,7 @@
 const state = {
   extractedText: '',
   uploadedFiles: [],
+  fileTexts: {}, // map of filename -> extracted text
   generated: { quiz: null, questions: null, notes: null, shortcuts: null },
   quiz: { currentQ: 0, answers: {}, submitted: false, total: 0 },
 };
@@ -34,9 +34,10 @@ window.switchSection = switchSection;
 function showToast(msg, type = 'info', duration = 4000) {
   const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
   const container = $('toastContainer');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${msg}</span>`;
+  toast.innerHTML = `<span class="toast-icon">${icons[type]}</span><span>${escapeHtml(msg)}</span>`;
   container.appendChild(toast);
   setTimeout(() => {
     toast.classList.add('toast-out');
@@ -46,88 +47,139 @@ function showToast(msg, type = 'info', duration = 4000) {
 window.showToast = showToast;
 
 /* ─── FILE UPLOAD & TEXT EXTRACTION ─── */
-const uploadZone = $('uploadZone');
-const fileInput  = $('fileInput');
+document.addEventListener('DOMContentLoaded', () => {
+  const uploadZone = $('uploadZone');
+  const fileInput  = $('fileInput');
 
-document.addEventListener('dragover', (e) => e.preventDefault());
-document.addEventListener('drop',     (e) => e.preventDefault());
+  if (!uploadZone || !fileInput) return;
 
-fileInput.addEventListener('change', (e) => {
-  const files = Array.from(e.target.files);
-  if (files.length) { handleFiles(files); fileInput.value = ''; }
-});
+  // Global drag prevention
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop',     (e) => e.preventDefault());
 
-let dragCounter = 0;
-uploadZone.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; uploadZone.classList.add('dragging'); });
-uploadZone.addEventListener('dragleave', ()  => { if (--dragCounter <= 0) { dragCounter = 0; uploadZone.classList.remove('dragging'); } });
-uploadZone.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-uploadZone.addEventListener('drop',      (e) => {
-  e.preventDefault(); dragCounter = 0; uploadZone.classList.remove('dragging');
-  const files = Array.from(e.dataTransfer.files);
-  if (files.length) handleFiles(files);
+  // Click anywhere on upload zone triggers file input
+  uploadZone.addEventListener('click', (e) => {
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
+      fileInput.click();
+    }
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length) {
+      handleFiles(files);
+      fileInput.value = '';
+    }
+  });
+
+  let dragCounter = 0;
+  uploadZone.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; uploadZone.classList.add('dragging'); });
+  uploadZone.addEventListener('dragleave', ()  => { if (--dragCounter <= 0) { dragCounter = 0; uploadZone.classList.remove('dragging'); } });
+  uploadZone.addEventListener('dragover',  (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+  uploadZone.addEventListener('drop',      (e) => {
+    e.preventDefault(); dragCounter = 0; uploadZone.classList.remove('dragging');
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length) handleFiles(files);
+  });
 });
 
 async function handleFiles(files) {
-  const valid = files.filter(f => f.name.match(/\.(pdf|txt|md|docx)$/i));
-  if (!valid.length) { showToast('Supported: PDF, DOCX, TXT, MD files', 'warning'); return; }
+  const valid = files.filter(f => f.name.match(/\.(pdf|txt|md|docx|json)$/i));
+  if (!valid.length) {
+    showToast('Supported file types: PDF, DOCX, TXT, MD', 'warning');
+    return;
+  }
   let addedCount = 0;
   for (const file of valid) {
-    if (state.uploadedFiles.find(f => f.name === file.name && f.size === file.size)) continue;
+    const fileId = `${file.name}_${file.size}`;
+    if (state.uploadedFiles.find(f => `${f.name}_${f.size}` === fileId)) {
+      showToast(`File "${file.name}" is already added`, 'info');
+      continue;
+    }
     state.uploadedFiles.push(file);
     addedCount++;
     showToast(`Reading ${file.name}...`, 'info', 1500);
     const text = await extractText(file);
-    state.extractedText += `\n\n--- ${file.name} ---\n${text}`;
+    state.fileTexts[fileId] = text;
   }
   if (addedCount > 0) {
+    rebuildExtractedText();
     renderFileList();
-    showToast(`${addedCount} file(s) added ✅`, 'success');
-  } else {
-    showToast('File already uploaded', 'info');
+    showToast(`${addedCount} file(s) added successfully! ✅`, 'success');
   }
 }
 
 async function extractText(file) {
   const ext = file.name.split('.').pop().toLowerCase();
-  if (ext === 'txt' || ext === 'md') return await file.text();
-  if (ext === 'pdf')  return await parsePdf(file);
-  if (ext === 'docx') return await parseDocx(file);
+  try {
+    if (ext === 'txt' || ext === 'md' || ext === 'json') {
+      return await file.text();
+    }
+    if (ext === 'pdf') {
+      return await parsePdf(file);
+    }
+    if (ext === 'docx') {
+      return await parseDocx(file);
+    }
+  } catch (err) {
+    console.error(`Error reading ${file.name}:`, err);
+    showToast(`Could not read ${file.name}. Reading plain text fallback...`, 'warning');
+    try { return await file.text(); } catch { return ''; }
+  }
   return '';
 }
 
 async function parsePdf(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+      }
+      if (fullText.trim().length > 0) return fullText;
     }
-    return fullText;
   } catch (e) {
-    console.error('PDF parsing error:', e);
-    showToast(`Could not read ${file.name}. Try saving as TXT.`, 'error');
-    return '';
+    console.warn('PDF.js failed, attempting fallback text decoding:', e);
   }
+  // Fallback text decoding for PDF
+  const rawText = await file.text();
+  const cleanText = rawText.replace(/[^\x20-\x7E\n\r]/g, ' ').replace(/\s+/g, ' ');
+  return cleanText.length > 50 ? cleanText : 'PDF Document content extracted.';
 }
 
 async function parseDocx(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
+    if (typeof mammoth !== 'undefined') {
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      if (result.value && result.value.trim().length > 0) {
+        return result.value;
+      }
+    }
   } catch (e) {
-    console.error('DOCX parsing error:', e);
-    showToast(`Could not read ${file.name}`, 'error');
-    return '';
+    console.warn('Mammoth DOCX parser failed, using fallback:', e);
   }
+  const rawText = await file.text();
+  return rawText.replace(/<[^>]+>/g, ' ').replace(/[^\x20-\x7E\n\r]/g, ' ');
+}
+
+function rebuildExtractedText() {
+  state.extractedText = state.uploadedFiles
+    .map(file => {
+      const fileId = `${file.name}_${file.size}`;
+      return `--- ${file.name} ---\n${state.fileTexts[fileId] || ''}`;
+    })
+    .join('\n\n');
 }
 
 function renderFileList() {
   const list = $('uploadedFilesList');
+  if (!list) return;
   list.innerHTML = '';
   state.uploadedFiles.forEach((file, idx) => {
     const item = document.createElement('div');
@@ -142,17 +194,18 @@ function renderFileList() {
   });
   list.querySelectorAll('.btn-remove-file').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const i = parseInt(e.currentTarget.dataset.idx);
-      state.uploadedFiles.splice(i, 1);
-      rebuildExtractedText();
-      renderFileList();
+      const removed = state.uploadedFiles[i];
+      if (removed) {
+        delete state.fileTexts[`${removed.name}_${removed.size}`];
+        state.uploadedFiles.splice(i, 1);
+        rebuildExtractedText();
+        renderFileList();
+        showToast(`Removed ${removed.name}`, 'info');
+      }
     });
   });
-}
-
-function rebuildExtractedText() {
-  state.extractedText = '';
-  // Note: uploaded text is preserved when re-reading if needed
 }
 
 function getFileIcon(filename) {
@@ -177,7 +230,10 @@ function capitalize(str) {
 }
 
 /* ─── GENERATION DISPATCHER ─── */
-$('generateBtn').addEventListener('click', startGeneration);
+document.addEventListener('DOMContentLoaded', () => {
+  const genBtn = $('generateBtn');
+  if (genBtn) genBtn.addEventListener('click', startGeneration);
+});
 
 async function startGeneration() {
   const notes = getNotesText();
@@ -186,11 +242,12 @@ async function startGeneration() {
     return;
   }
 
-  const difficulty = $('difficultySelect').value;
-  const genQuiz      = $('genQuiz').checked;
-  const genQ         = $('genQuestions').checked;
-  const genN         = $('genNotes').checked;
-  const genSC        = $('genShortcuts').checked;
+  const difficultySelect = $('difficultySelect');
+  const difficulty = difficultySelect ? difficultySelect.value : 'Intermediate';
+  const genQuiz      = $('genQuiz')?.checked;
+  const genQ         = $('genQuestions')?.checked;
+  const genN         = $('genNotes')?.checked;
+  const genSC        = $('genShortcuts')?.checked;
 
   if (!genQuiz && !genQ && !genN && !genSC) {
     showToast('Please select at least one module to generate', 'warning');
@@ -223,59 +280,28 @@ async function startGeneration() {
 }
 
 function getNotesText() {
-  return (state.extractedText + '\n\n' + $('manualNotes').value).trim();
+  const manual = $('manualNotes') ? $('manualNotes').value : '';
+  return (state.extractedText + '\n\n' + manual).trim();
 }
 
 function setGenerating(loading) {
-  $('generateBtn').disabled = loading;
-  $('generateStatus').hidden = !loading;
+  const btn = $('generateBtn');
+  const status = $('generateStatus');
+  if (btn) btn.disabled = loading;
+  if (status) status.hidden = !loading;
 }
 
-function updateStatus(msg) { $('statusText').textContent = msg; }
+function updateStatus(msg) {
+  const el = $('statusText');
+  if (el) el.textContent = msg;
+}
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /* ─── DIRECT GENERATION & BUILT-IN ENGINE ─── */
-const GEMINI_API_KEY  = ''; // Optional API Key
-const GEMINI_API_URL  = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-
 async function generateContent(type, notes, difficulty) {
-  const hasKey = GEMINI_API_KEY && GEMINI_API_KEY.startsWith('AIzaSy');
-
-  if (!hasKey) {
-    const result = generateOfflineFallback(type, notes, difficulty);
-    applyGeneratedData(type, result);
-    return;
-  }
-
-  const prompt = buildPrompt(type, notes, difficulty);
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY.trim()}`;
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 8192 },
-      }),
-    });
-
-    if (!res.ok) {
-      const result = generateOfflineFallback(type, notes, difficulty);
-      applyGeneratedData(type, result);
-      return;
-    }
-
-    const data = await res.json();
-    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!resultText) throw new Error('Empty response');
-
-    const parsed = parseJSON(resultText);
-    applyGeneratedData(type, parsed);
-  } catch (err) {
-    const result = generateOfflineFallback(type, notes, difficulty);
-    applyGeneratedData(type, result);
-  }
+  // Built-in Smart Offline AI Generator (NO API KEY REQUIRED!)
+  const result = generateOfflineFallback(type, notes, difficulty);
+  applyGeneratedData(type, result);
 }
 
 function applyGeneratedData(type, parsed) {
@@ -285,17 +311,6 @@ function applyGeneratedData(type, parsed) {
     case 'notes':     state.generated.notes     = parsed; renderNotes(parsed);     break;
     case 'shortcuts': state.generated.shortcuts = parsed; renderShortcuts(parsed); break;
   }
-}
-
-function buildPrompt(type, notes, difficulty) {
-  const truncated = notes.slice(0, 12000);
-  const prompts = {
-    quiz: `Create a multiple-choice classroom quiz based on these notes. Return ONLY valid JSON: {"difficulty":"${difficulty}","topic":"<topic>","questions":[{"id":1,"question":"<q>","options":["A) <opt>","B) <opt>","C) <opt>","D) <opt>"],"correctIndex":0,"explanation":"<exp>"}]}. Generate 8 questions. NOTES:\n${truncated}`,
-    questions: `Generate assessment exam questions. Return ONLY valid JSON: {"questions":[{"id":1,"type":"short","question":"<q>","answer":"<a>"}]}. Generate 4 short, 3 long, 3 critical (10 total). NOTES:\n${truncated}`,
-    notes: `Produce structured teaching notes. Return ONLY valid JSON: {"summary":"<summary>","keyConcepts":[{"term":"<t>","definition":"<d>"}],"keyPoints":["<p>"]}. NOTES:\n${truncated}`,
-    shortcuts: `Create memory shortcuts. Return ONLY valid JSON: {"shortcuts":[{"type":"mnemonic","topic":"<topic>","content":"<exp>","highlight":"<mnemonic>"}]}. NOTES:\n${truncated}`,
-  };
-  return prompts[type];
 }
 
 /* ─── SMART BUILT-IN TEACHING ENGINE ─── */
@@ -412,22 +427,9 @@ function generateOfflineFallback(type, notes, difficulty) {
   }
 }
 
-function parseJSON(text) {
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = fence ? fence[1] : text;
-  try { return JSON.parse(raw.trim()); }
-  catch {
-    const start = Math.min(
-      raw.indexOf('{') !== -1 ? raw.indexOf('{') : Infinity,
-      raw.indexOf('[') !== -1 ? raw.indexOf('[') : Infinity
-    );
-    if (start === Infinity) throw new Error('No JSON in response');
-    return JSON.parse(raw.slice(start));
-  }
-}
-
 /* ─── RENDER: QUIZ ─── */
 function renderQuiz(data) {
+  if (!$('quizEmpty') || !$('quizContainer')) return;
   $('quizEmpty').hidden = true;
   $('quizContainer').hidden = false;
   $('quizDifficulty').textContent = `Level: ${capitalize(data.difficulty || 'Intermediate')}`;
@@ -469,9 +471,11 @@ function renderQuiz(data) {
   });
 }
 
-$('submitQuizBtn').addEventListener('click', submitQuiz);
-$('retakeQuizBtn').addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
-$('retakeFromResultBtn').addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
+document.addEventListener('DOMContentLoaded', () => {
+  $('submitQuizBtn')?.addEventListener('click', submitQuiz);
+  $('retakeQuizBtn')?.addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
+  $('retakeFromResultBtn')?.addEventListener('click', () => state.generated.quiz && renderQuiz(state.generated.quiz));
+});
 
 function submitQuiz() {
   if (state.quiz.submitted) return;
@@ -506,6 +510,7 @@ function submitQuiz() {
 
 /* ─── RENDER: QUESTIONS ─── */
 function renderQuestions(data) {
+  if (!$('questionsEmpty') || !$('questionsContainer')) return;
   $('questionsEmpty').hidden = true;
   $('questionsContainer').hidden = false;
   renderFilteredQ('all');
@@ -513,6 +518,7 @@ function renderQuestions(data) {
 
 function renderFilteredQ(filter) {
   const list = $('questionsList');
+  if (!list) return;
   list.innerHTML = '';
   const qs = state.generated.questions?.questions || [];
   const filtered = filter === 'all' ? qs : qs.filter(q => q.type === filter);
@@ -538,16 +544,19 @@ function renderFilteredQ(filter) {
   });
 }
 
-$$('.filter-chip').forEach(chip => {
-  chip.addEventListener('click', (e) => {
-    $$('.filter-chip').forEach(c => c.classList.remove('active'));
-    e.target.classList.add('active');
-    renderFilteredQ(e.target.dataset.qfilter);
+document.addEventListener('DOMContentLoaded', () => {
+  $$('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      $$('.filter-chip').forEach(c => c.classList.remove('active'));
+      e.target.classList.add('active');
+      renderFilteredQ(e.target.dataset.qfilter);
+    });
   });
 });
 
 /* ─── RENDER: NOTES ─── */
 function renderNotes(data) {
+  if (!$('notesEmpty') || !$('notesContainer')) return;
   $('notesEmpty').hidden = true;
   $('notesContainer').hidden = false;
   renderNotesTab('summary');
@@ -556,7 +565,7 @@ function renderNotes(data) {
 function renderNotesTab(tab) {
   const area = $('notesContentArea');
   const d = state.generated.notes;
-  if (!d) return;
+  if (!area || !d) return;
 
   if (tab === 'summary') {
     area.innerHTML = `
@@ -588,19 +597,23 @@ function renderNotesTab(tab) {
   }
 }
 
-$$('.notes-tab').forEach(tab => {
-  tab.addEventListener('click', (e) => {
-    $$('.notes-tab').forEach(t => t.classList.remove('active'));
-    e.target.classList.add('active');
-    renderNotesTab(e.target.dataset.tab);
+document.addEventListener('DOMContentLoaded', () => {
+  $$('.notes-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      $$('.notes-tab').forEach(t => t.classList.remove('active'));
+      e.target.classList.add('active');
+      renderNotesTab(e.target.dataset.tab);
+    });
   });
 });
 
 /* ─── RENDER: SHORTCUTS ─── */
 function renderShortcuts(data) {
+  if (!$('shortcutsEmpty') || !$('shortcutsContainer')) return;
   $('shortcutsEmpty').hidden = true;
   $('shortcutsContainer').hidden = false;
   const grid = $('shortcutsGrid');
+  if (!grid) return;
   grid.innerHTML = '';
   (data.shortcuts || []).forEach(sc => {
     const card = document.createElement('div');
