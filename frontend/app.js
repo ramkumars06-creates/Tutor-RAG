@@ -423,7 +423,7 @@ NOTES:\n${truncated}`,
 }
 
 /* ─── GEMINI DIRECT API (no backend needed) ─── */
-const GEMINI_API_KEY  = 'AQ.Ab8RN6KEy1Izg54yAgd9uw7gBrQ_A49632P_aWwKtRTXSIQCPA'; // ← paste your key here
+const GEMINI_API_KEY  = 'AQ.Ab8RN6IBLqSzqnc11jCM0ADNBQyJ-2EHypwEjuEuzxPYbqTRPA'; // ← paste your key here
 const GEMINI_API_URL  = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 const DAILY_LIMIT     = 20; // requests per user per day (client-side)
 

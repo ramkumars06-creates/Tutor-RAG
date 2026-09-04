@@ -9,7 +9,7 @@
 // ── Config ───────────────────────────────────────────
 // IMPORTANT: Replace with your actual Google OAuth Client ID
 // Get it from: https://console.cloud.google.com/apis/credentials
-const GOOGLE_CLIENT_ID = '508268042876-aamfd3dv48rcgibbgal2ka038ddgf1ev.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '84636028939-57rblnai4d1otk2c0hn2mif0pea4pi0m.apps.googleusercontent.com';
 
 // Backend URL — update this after deploying to Render.com
 const BACKEND_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
