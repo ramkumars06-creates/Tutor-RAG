@@ -20,7 +20,7 @@
   <!-- Google Identity Services (GSI) -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
 
@@ -54,7 +54,14 @@
         <div class="feature-pill">⚡ Mnemonics</div>
       </div>
 
-      <!-- Google Sign-In Button -->
+      <!-- Instant Launch Button (No Login Required) -->
+      <div class="guest-launch-wrapper">
+        <button class="btn-guest-start" id="guestStartBtn" type="button">
+          🚀 Launch Teaching Platform (No API Key Required)
+        </button>
+      </div>
+
+      <!-- Google Sign-In Button (Optional) -->
       <div class="google-signin-wrapper">
         <div id="googleSignInBtn"></div>
         <p class="signin-note">Free · Secure Educator Portal</p>
@@ -75,7 +82,7 @@
     </div>
   </div>
 
-  <!-- ═══════════ MAIN APP (shown after login) ═══════════ -->
+  <!-- ═══════════ MAIN APP (shown after login / launch) ═══════════ -->
   <div class="app-wrapper" id="appWrapper" hidden>
 
     <!-- Header -->
@@ -112,10 +119,10 @@
 
         <!-- User Profile Pill -->
         <div class="user-profile" id="userProfile">
-          <img class="user-avatar" id="userAvatar" src="" alt="User avatar" width="36" height="36" />
+          <img class="user-avatar" id="userAvatar" src="https://ui-avatars.com/api/?name=Educator&background=6366f1&color=fff&size=36" alt="User avatar" width="36" height="36" />
           <div class="user-info">
-            <span class="user-name" id="userName">Loading...</span>
-            <span class="user-email" id="userEmail"></span>
+            <span class="user-name" id="userName">Educator</span>
+            <span class="user-email" id="userEmail">guest@teaching.app</span>
           </div>
           <button class="btn-signout" id="signOutBtn" title="Sign out" aria-label="Sign out">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
@@ -141,13 +148,14 @@
               <span class="card-icon">📄</span>
               <h3>Course &amp; Lesson Material</h3>
             </div>
+            
             <!-- UPLOAD ZONE -->
             <div class="upload-zone" id="uploadZone">
               <span class="upload-icon-big">☁️</span>
               <span class="upload-title">Drop course files here</span>
               <span class="upload-sub">Supports PDF, DOCX, TXT, Markdown</span>
-              <label for="fileInput" class="btn-browse-files">Browse Files</label>
-              <input type="file" id="fileInput" accept=".pdf,.txt,.md,.docx" multiple hidden />
+              <button type="button" class="btn-browse-files" id="browseFilesBtn">📁 Browse Files</button>
+              <input type="file" id="fileInput" accept=".pdf,.txt,.md,.docx" multiple style="display:none !important;" />
             </div>
 
             <!-- Uploaded Files List -->
@@ -297,7 +305,7 @@
   <!-- Toast Notifications -->
   <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="auth.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="auth.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
